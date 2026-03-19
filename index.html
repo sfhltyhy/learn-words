@@ -3,564 +3,231 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>認字英雄傳：每日打卡版 v1.1</title>
+    <title>認字英雄傳：每日任務版 v1.2</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <style>
-        :root {
-            --primary: #2c3e50;
-            --accent: #f1c40f;
-            --bg: #ecf0f1;
-            --success: #27ae60;
-            --fail: #e74c3c;
-            --card-bg: #ffffff;
-        }
-        body { font-family: 'PingFang HK', 'Microsoft JhengHei', sans-serif; background: var(--bg); margin: 0; display: flex; flex-direction: column; height: 100vh; overflow: hidden; color: #333; }
+        :root { --primary: #2c3e50; --accent: #f1c40f; --bg: #ecf0f1; --success: #27ae60; --fail: #e74c3c; }
+        body { font-family: 'PingFang HK', 'Microsoft JhengHei', sans-serif; background: var(--bg); margin: 0; display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
         
-        /* 煙花動畫 Canvas */
-        #fireworks { position: fixed; top: 0; left: 0; pointer-events: none; z-index: 9999; }
+        /* 月曆導航 */
+        #calendar-view { padding: 15px; overflow-y: auto; flex: 1; display: flex; flex-direction: column; }
+        .calendar-nav { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; background: white; padding: 10px; border-radius: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
+        .nav-btn { background: var(--primary); color: white; border: none; padding: 8px 15px; border-radius: 5px; cursor: pointer; }
+        
+        .calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 5px; }
+        .weekday { text-align: center; font-size: 0.8rem; color: #7f8c8d; padding-bottom: 5px; }
+        .day-box { background: white; border-radius: 8px; aspect-ratio: 1; display: flex; align-items: center; justify-content: center; position: relative; border: 1px solid #ddd; font-size: 1.1rem; font-weight: bold; cursor: pointer; }
+        .day-box.today { background: #fffde7; border: 2px solid var(--accent); }
+        .day-box.completed::after { content: '✅'; position: absolute; bottom: 2px; right: 2px; font-size: 10px; }
+        .day-box.future { opacity: 0.4; pointer-events: none; }
+        .day-box.missed { background: #fff5f5; border-color: #fab1a0; }
 
-        /* 月曆主介面 */
-        #calendar-view { padding: 20px; overflow-y: auto; flex: 1; display: flex; flex-direction: column; }
-        .calendar-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; color: var(--primary); padding: 0 10px; }
-        .calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 8px; flex: 1; align-content: start; }
-        .day-box { background: var(--card-bg); border-radius: 12px; aspect-ratio: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; position: relative; border: 2px solid transparent; box-shadow: 0 4px 6px rgba(0,0,0,0.05); cursor: pointer; transition: all 0.2s; }
-        .day-box:active { transform: scale(0.95); }
-        .day-box.today { border-color: var(--accent); background: #fffde7; box-shadow: 0 0 15px rgba(241, 196, 15, 0.3); }
-        .day-box.completed::after { content: '✅'; position: absolute; top: 5px; right: 5px; font-size: 14px; }
-        .day-box.future { opacity: 0.3; pointer-events: none; background: #ddd; }
-        .day-box.missed { border-color: var(--fail); background: #fff5f5; }
-        .day-num { font-weight: bold; font-size: 1.3rem; }
+        /* 挑戰介面 */
+        #challenge-view { display: none; flex: 1; flex-direction: column; align-items: center; justify-content: center; padding: 20px; text-align: center; background: white; }
+        #word-display { font-size: 5.5rem; font-weight: 900; color: var(--primary); margin-bottom: 30px; letter-spacing: 5px; min-height: 1.2em; }
+        #word-display.correct { color: var(--success); transform: scale(1.1); transition: 0.2s; }
         
-        /* 挑戰/閃卡介面 */
-        #challenge-view { display: none; flex: 1; flex-direction: column; align-items: center; justify-content: center; padding: 20px; text-align: center; background: white; position: relative; }
-        
-        /* 閃卡核心區域 */
-        .flash-card-area { width: 100%; max-width: 600px; height: 50vh; display: flex; flex-direction: column; justify-content: center; align-items: center; position: relative; }
-        #word-display { font-size: clamp(3rem, 18vw, 8rem); font-weight: 900; color: var(--primary); margin-bottom: 20px; letter-spacing: 5px; transition: color 0.2s; }
-        #word-display.correct { color: var(--success) !important; animation: popSuccess 0.3s; }
-        
-        /* 語音指示器 */
-        #voice-indicator { width: 80px; height: 80px; border-radius: 50%; background: #f8f9fa; display: flex; align-items: center; justify-content: center; font-size: 1.8rem; box-shadow: 0 4px 10px rgba(0,0,0,0.05); transition: all 0.3s; border: 3px solid transparent; }
-        .listening { border-color: #e74c3c66; background: #fff5f5 !important; color: #e74c3c; animation: pulseMic 1.5s infinite; }
-        
-        /* 進度條與資訊 */
-        .progress-container { position: fixed; top: 0; left: 0; width: 100%; height: 6px; background: #eee; z-index: 100; }
-        .progress-bar { height: 100%; background: var(--success); width: 0%; transition: width 0.3s; }
-        #task-info { position: fixed; top: 15px; right: 20px; font-size: 0.9rem; color: #7f8c8d; font-weight: bold; z-index: 90; }
+        #voice-indicator { width: 70px; height: 70px; border-radius: 50%; background: #f8f9fa; display: flex; align-items: center; justify-content: center; font-size: 1.5rem; border: 3px solid #eee; margin-bottom: 15px; }
+        .listening { border-color: var(--fail); color: var(--fail); animation: pulse 1.5s infinite; }
+        @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(231,76,60,0.4); } 100% { box-shadow: 0 0 0 15px rgba(231,76,60,0); } }
 
-        /* 按鈕控制 */
-        .controls { margin-top: 40px; display: flex; gap: 15px; flex-wrap: wrap; justify-content: center; }
-        .btn { padding: 12px 24px; border-radius: 30px; border: none; font-size: 1rem; cursor: pointer; transition: 0.3s; font-weight: bold; display: flex; align-items: center; gap: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
-        .btn:active { transform: translateY(2px); box-shadow: 0 1px 2px rgba(0,0,0,0.1); }
-        .btn-reset { background: #95a5a6; color: white; }
-        .btn-back { position: fixed; top: 10px; left: 10px; background: rgba(255,255,255,0.8); border: 1px solid #ddd; z-index: 110; color: var(--primary); padding: 8px 15px; font-size: 0.9rem; }
-        
-        #status-msg { height: 25px; color: #666; margin-top: 10px; font-size: 0.9rem; min-height: 25px; }
-
-        /* 動畫效果 */
-        @keyframes pulseMic { 0% { box-shadow: 0 0 0 0 rgba(231, 76, 60, 0.4); } 70% { box-shadow: 0 0 0 15px rgba(231, 76, 60, 0); } 100% { box-shadow: 0 0 0 0 rgba(231, 76, 60, 0); } }
-        @keyframes popSuccess { 0% { transform: scale(1); } 50% { transform: scale(1.1); } 100% { transform: scale(1); } }
-        @keyframes fireworksAnimation { 0% { transform: translate(-50%, -50%) scale(0); opacity: 1; } 100% { transform: translate(-50%, -50%) scale(1); opacity: 0; } }
-        
-        .firework-particle { position: fixed; width: 6px; height: 6px; border-radius: 50%; animation: fireworksAnimation 1s ease-out forwards; pointer-events: none; z-index: 10000; }
+        .progress-bar { position: fixed; top: 0; left: 0; height: 6px; background: var(--success); transition: width 0.3s; z-index: 100; }
+        .btn-back { position: fixed; top: 15px; left: 15px; padding: 8px 15px; border-radius: 20px; border: 1px solid #ddd; background: white; z-index: 110; }
+        .btn-reset { background: #95a5a6; color: white; padding: 10px 20px; border-radius: 20px; border: none; margin-top: 20px; }
     </style>
 </head>
 <body>
 
-    <div class="progress-container"><div class="progress-bar" id="progress-bar"></div></div>
-    <div id="task-info"></div>
+<div class="progress-bar" id="progress-bar"></div>
 
-    <div id="calendar-view">
-        <div class="calendar-header">
-            <h2 id="month-title">載入中...</h2>
-            <div id="total-stats" style="font-weight:bold; color:var(--success);">連續達標: 0 天</div>
-        </div>
-        <div class="calendar-grid" id="calendar-grid"></div>
-        <div style="text-align:center; margin-top:auto; padding-top:20px;">
-            <button class="btn" onclick="exportData()" style="background:#b2bec3; color:white; margin: 0 auto; font-size:0.8rem; padding:8px 15px;"><i class="fas fa-file-export"></i> 備份進度代碼</button>
-        </div>
+<div id="calendar-view">
+    <div class="calendar-nav">
+        <button class="nav-btn" onclick="changeMonth(-1)"><i class="fas fa-chevron-left"></i></button>
+        <h2 id="month-label" style="margin:0; font-size:1.2rem;">2026年3月</h2>
+        <button class="nav-btn" onclick="changeMonth(1)"><i class="fas fa-chevron-right"></i></button>
     </div>
+    <div class="calendar-grid" id="calendar-grid"></div>
+    <div style="text-align:center; padding: 20px;">
+        <button onclick="exportData()" style="font-size:0.7rem; color:#999; border:none; background:none; text-decoration:underline;">備份戰力代碼</button>
+    </div>
+</div>
 
-    <div id="challenge-view">
-        <button class="btn btn-back" onclick="showCalendar()"><i class="fas fa-chevron-left"></i> 返回月曆</button>
-        
-        <div class="flash-card-area">
-            <div id="word-display">載入中</div>
-            <div id="voice-indicator"><i class="fas fa-microphone"></i></div>
-            <div id="status-msg">準備就緒</div>
-        </div>
-        
-        <div class="controls">
-            <button class="btn btn-reset" onclick="resetToday()"><i class="fas fa-redo"></i> 重讀今日 (10詞)</button>
-        </div>
-    </div>
+<div id="challenge-view">
+    <button class="btn-back" onclick="showCalendar()"><i class="fas fa-calendar-alt"></i> 返回</button>
+    <div id="task-title" style="color:#7f8c8d; margin-bottom:10px; font-weight:bold;"></div>
+    <div id="word-display">載入中</div>
+    <div id="voice-indicator"><i class="fas fa-microphone"></i></div>
+    <div id="status-msg" style="color:#666; font-size:0.9rem; height:20px;">等待語音...</div>
+    <button class="btn-reset" onclick="resetToday()">重做當天任務</button>
+</div>
 
 <script>
-// --- 核心配置 ---
-const FLASH_SPEED = 1500; // 閃視速度 (1.5秒)
-const STORAGE_KEY = 'hero_daily_v1_1'; // LocalStorage Key
-const START_DATE_STR = "2026-03-01"; // 詞庫對應的起始日期 (用作計算Offset)
-
-// --- 完整字庫彙整 (P2 - Exam) ---
+// --- 完整詞庫 (P2-P6) ---
 const p2Words = "習慣,良好,健康,強壯,精神,飲食,保持,預防,準時,整潔,守禮,誠實,勤奮,責任,按時,睡覺,早起,刷牙,洗臉,運動,營養,偏食,零食,衛生,收拾,整齊,自動自覺,勉強,蔬菜,水果,固定,作息,充足,休息,均衡,操場,禮堂,圖書館,集會,比賽,表演,練習,整理,借書,歸還,規則,互相,合作,禮讓,獎勵,校服,領帶,校徽,笔盒,膠水,剪刀,顏色筆,釘書機,尺子,筆記簿,處罰,專心,認真,思考,發問,答案,舉手,遲到,缺席,街道,熱鬧,商店,馬路,天橋,公園,診所,車站,郵局,銀行,街市,超市,餐廳,麵包店,理髮店,醫院,警察局,消防局,遊樂場,住宅,高樓,鄰居,保安員,電梯,自動電梯,噴水池,花槽,走廊,大門,圍欄,社區,繁忙,巴士,地鐵,渡輪,飛機,火車,電車,私家車,貨車,小巴,救護車,警察車,單車,的士,站牌,碼頭,機場,鐵軌,紅綠燈,斑馬線,安全,司機,乘客,座位,扶手,車廂,隧道,超速,碰撞,遵守,注意,標誌,行人,路口,陽光,空氣,溫暖,季節,春天,夏天,秋天,冬天,潮濕,乾燥,炎熱,寒冷,刮風,下雨,閃電,結冰,積雪,霧氣,彩虹,雷暴,暴雨,天文台,預報,氣溫,涼快,悶熱,結霜,變化,露水,微風,強烈,氣候,涼爽,播種,收穫,早餐,午餐,晚餐,點心,美味,營養,飽足,口渴,甜味,酸味,苦味,辣味,麵包,雞團,牛奶,米飯,麵條,稀飯,肉類,海鮮,湯水,果汁,甜品,飽滿,香脆,熱騰騰,冰涼,味道,調味,餐具,服務,結帳,浪費,珍惜".split(',');
-
 const p3Words = "興奮,難過,焦急,驚奇,懷疑,驕傲,慚愧,慶幸,盼望,思念,感動,委屈,憤怒,平靜,得意,害怕,擔憂,滿意,後悔,驚訝,傷心,愉快,煩惱,痛快,焦慮,親切,溫柔,憤恨,遺憾,痛心,失望,絕望,振奮,驚慌,害羞,寬慰,繁華,寧靜,壯觀,朦朧,翠綠,茂盛,凋謝,清脆,寬闊,狹窄,陡峭,崎嶇,清澈,湛藍,五光十色,柔軟,堅硬,粗糙,平滑,細緻,鮮艷,灰暗,透明,沉重,輕巧,濃郁,清淡,刺耳,芬芳,冰冷,滾燙,倒影,環繞,延綿,遼闊,從前,神奇,魔幻,仙女,城堡,森林,怪物,變幻,願望,善良,邪惡,報答,誠實,結果,後來,突然,竟然,果然,最後,經歷,解決,希望,夢想,道理,困難,容易,珍惜,浪費,保護,破壞,重要,特別,發現,觀察,試驗,結局,遭遇,高山,深谷,河流,海洋,平原,島嶼,沙漠,瀑布,泉水,港口,沙灘,懸崖,叢林,溪流,湖泊,山脈,盆地,丘陵,濕地,旋轉,搖晃,跳動,擺動,滑行,飛翔,降落,漂浮,沉沒,燃燒,爆炸,分裂,結合,掩護,進攻,防守,追逐".split(',');
-
-const p4Words = "慈祥,嚴厲,和藹,剛強,內向,外向,謙虛,傲慢,機靈,穩重,馬虎,細心,慷慨,吝嗇,感激,憐憫,同情,懷念,敬佩,羨慕,嫉妒,厭惡,原諒,信任,孤獨,毅力,果斷,正直,奸詐,頑強,平易近人,默默無聞,堅持不懈,不屈不撓,一心一意,自言自語,五顏六色,走馬看花,目瞪口呆,大公無私,力不從心,半途而廢,名列前茅,垂頭喪氣,胸有成竹,得意洋洋,破口大罵,悶悶不樂,視而不見,無影無蹤,萬眾一心,情不自禁,千變萬化,大海撈針,守口如瓶,廢寢忘食,驚心動魄,隨遇而安,異想天開,出口成章,入木三分,名副其實,大言不慚,不知所措,以身作則,因材施教,老馬識途,再接再厲,百折不撓,自強不息,忍辱負重,走投無路,其貌不揚,刻骨銘心,念念不忘,如同,彷彿,閃爍,襯托,比喻,生動,感人,層次,細膩,描繪,總結,鋪陳,擬人,誇張,對比,排比,反問,設問,呼應,過渡,聯想,引用,渲染,側寫,伏筆,精煉,流暢,生澀,含蓄,直白,主旨,段落,概括,結構,昇華,意象".split(',');
-
+const p4Words = "觀察,實驗,證明,發現,發明,創造,想像,豐富,精彩,深刻,欣賞,讚美,批評,建議,改善,效率,節省,累積,經驗,智慧,慈祥,嚴厲,和藹,剛強,內向,外向,謙虛,傲慢,機靈,穩重,馬虎,細心,慷慨,吝嗇,感激,憐憫,同情,懷念,敬佩,羨慕,嫉妒,厭惡,原諒,信任,孤獨,毅力,果斷,正直,奸詐,頑強,平易近人,默默無聞,堅持不懈,不屈不撓,一心一意,自言自語,五顏六色,走馬看花,目瞪口呆,大公無私,力不從心,半途而廢,名列前茅,垂頭喪氣,胸有成竹,得意洋洋,破口大罵,悶悶不樂,視而不見,無影無蹤,萬眾一心,情不自禁,千變萬化,大海撈針,守口如瓶,廢寢忘食,驚心動魄,隨遇而安,異想天開,出口成章,入木三分,名副其實,大言不慚,不知所措,以身作則,因材施教,老馬識途,再接再厲,百折不撓,自強不息,忍辱負重,走投無路,其貌不揚,刻骨銘心,念念不忘,如同,彷彿,閃爍,襯托,比喻,生動,感人,層次,細膩,描繪,總結,鋪陳,擬人,誇張,對比,排比,反問,設問,呼應,過渡,聯想,引用,渲染,側寫,伏筆,精煉,流暢,生澀,含蓄,直白,主旨,段落,概括,結構,昇華,意象".split(',');
 const p5Words = "價值,意義,態度,信念,理想,意志,勇氣,智慧,磨練,考驗,機遇,挑戰,趨勢,貢獻,傳統,革新,責任感,榮譽感,包容,和諧,正義,公理,邏輯,偏見,主觀,客觀,判斷,選擇,決定,後果,目標,實踐,恆心,毅力,反省,映襯,鋪墊,反思,感悟,意境,昇華,象徵,側寫,烘托,扣人心弦,精雕細琢,引引人入勝,言簡意賅,惟妙惟肖,妙筆生花,畫龍點睛,別開生面,不落俗套,意蘊深長,層次分明,首尾呼應,跌宕起伏,感人肺腑,嘆為觀止,慶祝,節日,秩序,繁榮,落後,競爭,合作,分配,義務,權利,福利,建設,發展,資源,保育,污染,氣候變遷,多樣性,演化,繁衍,棲息,滅絕,平衡,循環,再生,減少,廢物,能源,低碳,綠色生活,危機,共識,政策,意識,不可思議,不勞而獲,心曠神怡,見義勇為,言行一致,刻苦耐勞,理直氣壯,落井下石,精益求精,語重心長,鍥而不捨,驚慌失措,舉一反三,隨機應變,實事求是,堅持不懈,赴湯蹈火,指鹿為馬,望洋興嘆,聞雞起舞".split(',');
-
 const p6Words = "前程似錦,後會有期,萍水相逢,朝夕相對,患難與共,捨己為人,推陳出新,袖手旁觀,肅然起敬,微不足道,雷厲風行,慷慨解囊,應接不暇,獲益匪淺,難能可貴,瞻前顧後,離鄉別井,飲水思源,學富五車,默默耕耘,自討苦吃,得寸進尺,趨勢,革新,治理,政策,和諧,永續,全球化,競爭力,優勢,劣勢,關鍵,轉型,展望,民主,法治,義務,公民,權利,爭議,平衡,協調,衝突,改善,效率,指標,監督,評估,透明度,公共利益,社區意識,人權,發展路徑,多元化,惆悵,眷戀,釋懷,沉鬱,慨嘆,欣慰,徬徨,羞赧,焦躁,淡泊,懷舊,憧憬,身歷其境,感觸,唏噓,昂揚,憂傷,喜悅,空靈,質樸,華麗,冷峻,奔放,激昂,平實,深奧,淺顯,晦澀,明快,優美,細膩,粗獷,幽默,諷刺,真實,虛幻,同窗,恩師,勉勵,前途,回憶,珍重,揚帆,啟航,奮鬥,光陰,不捨,踏實,前進,志向,抱負,信念,勇往直前,白駒過隙,光陰似箭,歲月流逝,難忘,純真,友情,離情依依,繼往開來,自強不息,宏偉,目標,成就,感激,祝福,夢想成真".split(',');
+const examWords = "判斷,分析,解釋,列舉,歸納,比較,對照,選出,填寫,圈出,劃線,修正,補充,根據,引用,理由,原因,結果,影響,異同,特點,特徵,適當,錯誤,正確,正確答案,下列,以上,未必,必定,可能,顯示,反映,關鍵,主旨,中心思想,段意,承上啟下,伏筆,呼應,性格,心情,描寫,感受,啟發,體會,寓意,比喻,本體,喻體,擬人,排比,對比,誇張,反問,設問,疊字,對偶,感官,視覺,聽覺,嗅覺,相差,共,餘下,平分,平均,原本,現有,倍數,一半,增加,減少,求,計算,橫式,直式,單位,估算,實驗,觀察,記錄,結論,公平,變量,假設,功能,構造,演變,趨勢,資料,圖表,比例,分配,資源,環保,責任,權利,義務,借代,反襯,雙關,層遞,頂真,聯想,想像,象徵,反語,開門見山,卒章顯志,寓情於景,借景抒情,托物言志,先抑後揚,側面描寫,行動描寫,心理描寫".split(',');
 
-const examWords = "判斷,分析,解釋,列舉,歸納,比較,對照,選出,填寫,圈出,劃線,修正,補充,根據,引用,理由,原因,結果,影響,異同,特點,特徵,適當,錯誤,正確,正確答案,下列,以上,未必,必定,可能,顯示,反映,關鍵,主旨,中心思想,段意,承上啟下,伏筆,呼應,性格,心情,描寫,感受,啟發,體會,寓意,比喻,本體,喻體,擬人,排比,對比,誇張,反問,設問,疊字,對偶,感官,視覺,聽覺,嗅覺,相差,共,餘下,平分,平均,原本,現有,倍數,一半,增加,減少,求,計算,驗算,列式,橫式,直式,單位,估算,實驗,觀察,記錄,結論,公平,變量,假設,功能,構造,演變,趨勢,資料,圖表,比例,分配,資源,環保,責任,權利,義務,借代,反襯,雙關,層遞,頂真,聯想,想像,象徵,反語,開門見山,卒章顯志,寓情於景,借景抒情,托物言志,先抑後揚,側面描寫,行動描寫,心理描寫".split(',');
+const TOTAL_POOL = [...p2Words, ...p3Words, ...p4Words, ...p5Words, ...p6Words, ...examWords];
 
-// 最終扁平化詞庫阵列 (順序：P2->P3->P4->P5->P6->Exam)
-const TOTAL_WORD_POOL = [...p2Words, ...p3Words, ...p4Words, ...p5Words, ...p6Words, ...examWords];
+// --- 設定 ---
+const START_FIXED_DATE = new Date("2026-03-19"); // 鎖定從今日開始
+let viewDate = new Date(); // 月曆顯示的日期
+let userData = JSON.parse(localStorage.getItem('hero_daily_v1_2')) || { completed: {}, fails: {} };
+let currentWords = [], currentIdx = 0, flashTimer = null, recognition = null;
 
-// --- 狀態管理 ---
-let userData = JSON.parse(localStorage.getItem(STORAGE_KEY)) || {
-    completedDates: {}, // {"2026-03-19": true}
-    failCounts: {}     // {"詞語": 5}
-};
+const todayStr = new Date().toLocaleDateString('sv-SE'); // YYYY-MM-DD
 
-const todayStr = new Date().toISOString().split('T')[0];
-let currentSessionWords = []; // 當前任務的10/20/30詞
-let currentWordIdx = 0;
-let flashInterval = null; // 閃視計時器
-let recognition = null; // 語音辨識物件
-let isSpeaking = false; // 是否正在朗讀 (防止語音辨識錄到系統聲音)
-
-// --- 初始化 ---
 function init() {
-    setupSpeechRecognition();
-    renderCalendar();
-    
-    // 智能判斷：今日未達標則直入挑戰
-    if (!userData.completedDates[todayStr]) {
-        startDailyTask(todayStr);
+    setupRecognition();
+    if (!userData.completed[todayStr]) {
+        startTask(todayStr);
     } else {
-        showCalendar(); // 已達標則顯示月曆
+        renderCalendar();
     }
 }
 
 // --- 月曆邏輯 ---
-function renderCalendar() {
-    const grid = document.getElementById('calendar-grid');
-    grid.innerHTML = '';
-    const date = new Date();
-    const year = date.getFullYear();
-    const month = date.getMonth();
-    
-    // 設定標題
-    document.getElementById('month-title').innerText = `${year}年${month + 1}月英雄榜`;
-    
-    // 計算月份第一天是星期幾
-    const firstDayOfWeek = new Date(year, month, 1).getDay(); // 0 (日) 到 6 (六)
-    // 計算月份總天數
-    const daysInMonth = new Date(year, month + 1, 0).getDate();
-
-    // 填充月份前的空白
-    for (let i = 0; i < firstDayOfWeek; i++) {
-        grid.appendChild(document.createElement('div'));
-    }
-
-    // 填充日期
-    for (let d = 1; d <= daysInMonth; d++) {
-        const dStr = `${year}-${String(month+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
-        const div = document.createElement('div');
-        div.className = 'day-box';
-        
-        // 樣式判斷
-        if (dStr === todayStr) div.classList.add('today');
-        if (dStr > todayStr) div.classList.add('future');
-        if (userData.completedDates[dStr]) div.classList.add('completed');
-        // 漏做判斷 (過去且未完成)
-        if (dStr < todayStr && !userData.completedDates[dStr]) div.classList.add('missed');
-
-        div.innerHTML = `<span class="day-num">${d}</span>`;
-        
-        // 點擊事件：未來的日子不能點
-        if (dStr <= todayStr) {
-            div.onclick = () => startDailyTask(dStr);
-        }
-        
-        grid.appendChild(div);
-    }
-    
-    // 更新累計數據 (計算連續達標暫時簡化)
-    const completedCount = Object.keys(userData.completedDates).length;
-    document.getElementById('total-stats').innerText = `總共達標: ${completedCount} 天`;
-}
-
-function showCalendar() {
-    stopFlash();
-    stopListening();
-    document.getElementById('calendar-view').style.display = 'flex';
-    document.getElementById('challenge-view').style.display = 'none';
-    document.getElementById('task-info').innerText = "";
+function changeMonth(step) {
+    viewDate.setMonth(viewDate.getMonth() + step);
     renderCalendar();
 }
 
-// --- 挑戰/閃視邏輯核心 ---
-function startDailyTask(dateStr) {
+function renderCalendar() {
+    document.getElementById('calendar-view').style.display = 'flex';
+    document.getElementById('challenge-view').style.display = 'none';
+    
+    const grid = document.getElementById('calendar-grid');
+    grid.innerHTML = '';
+    const y = viewDate.getFullYear(), m = viewDate.getMonth();
+    document.getElementById('month-label').innerText = `${y}年${m + 1}月`;
+
+    // 星期頭
+    "日一二三四五六".split('').forEach(d => {
+        const div = document.createElement('div'); div.className='weekday'; div.innerText=d; grid.appendChild(div);
+    });
+
+    const firstDay = new Date(y, m, 1).getDay();
+    const totalDays = new Date(y, m + 1, 0).getDate();
+
+    for(let i=0; i<firstDay; i++) grid.appendChild(document.createElement('div'));
+
+    for(let d=1; d<=totalDays; d++) {
+        const dStr = `${y}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+        const div = document.createElement('div');
+        div.className = 'day-box';
+        if(dStr === todayStr) div.classList.add('today');
+        if(userData.completed[dStr]) div.classList.add('completed');
+        if(new Date(dStr) < START_FIXED_DATE && dStr !== todayStr) div.style.opacity = '0.2';
+        if(new Date(dStr) > new Date(todayStr)) div.classList.add('future');
+        
+        div.innerText = d;
+        div.onclick = () => { if(new Date(dStr) <= new Date(todayStr)) startTask(dStr); };
+        grid.appendChild(div);
+    }
+}
+
+// --- 任務邏輯 ---
+function startTask(dateStr) {
+    window.taskingDate = dateStr;
     document.getElementById('calendar-view').style.display = 'none';
     document.getElementById('challenge-view').style.display = 'flex';
-    document.getElementById('word-display').classList.remove('correct');
     
-    generateDailyWords(dateStr);
-    currentWordIdx = 0;
-    
-    // 顯示今日任務類型
-    const d = new Date(dateStr);
-    const type = (dateStr === todayStr) ? "今日" : "補做";
-    document.getElementById('task-info').innerText = `${type}任務 (${currentSessionWords.length}詞)`;
+    // 計算與 3月19日 差距的天數
+    const targetDate = new Date(dateStr);
+    const diffDays = Math.floor((targetDate - START_FIXED_DATE) / 86400000);
+    const dayOfWeek = targetDate.getDay();
 
-    showWordAndStartFlash();
-    startListening();
-}
-
-// 自動分配詞語算法
-function generateDailyWords(dateStr) {
-    const d = new Date(dateStr);
-    const dayOfWeek = d.getDay(); // 0:日, 6:六
-
-    if (dayOfWeek >= 1 && dayOfWeek <= 5) { // 平日 (一至五): 10個新詞
-        // 計算 Offset (基於 START_DATE_STR)
-        const startDate = new Date(START_DATE_STR);
-        const diffTime = Math.abs(d - startDate);
-        const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24)); 
-        
-        const startIdx = (diffDays * 10) % TOTAL_WORD_POOL.length;
-        currentSessionWords = TOTAL_WORD_POOL.slice(startIdx, startIdx + 10);
-        
-        // 如果尾部不足10個，自動循環取頭部補齊
-        if (currentSessionWords.length < 10) {
-            const needed = 10 - currentSessionWords.length;
-            currentSessionWords = [...currentSessionWords, ...TOTAL_WORD_POOL.slice(0, needed)];
-        }
-    } 
-    else if (dayOfWeek === 6) { // 週六: 本週最弱 (失敗次數最多) 20個
-        // 篩選出有失敗記錄的詞，並按次序降序排列
-        const sortedWeakWords = Object.entries(userData.failCounts)
-            .filter(entry => entry[1] > 0) // 只取有失敗過的
-            .sort((a,b) => b[1] - a[1]) // 次數多排前
-            .map(entry => entry[0]);
-            
-        if (sortedWeakWords.length >= 20) {
-            currentSessionWords = sortedWeakWords.slice(0, 20);
-        } else if (sortedWeakWords.length > 0) {
-            // 不足20個，用隨機詞補齊
-            const needed = 20 - sortedWeakWords.length;
-            const randomFill = [...TOTAL_WORD_POOL].sort(() => 0.5 - Math.random()).slice(0, needed);
-            currentSessionWords = [...sortedWeakWords, ...randomFill];
-        } else {
-            // 完全冇失敗記錄，純隨機20個
-            currentSessionWords = [...TOTAL_WORD_POOL].sort(() => 0.5 - Math.random()).slice(0, 20);
-        }
-    } 
-    else { // 週日: 時光回溯 (隨機舊詞) 30個
-        // 優先挑選日期久遠的邏輯暫時簡化為純隨機 (防止 Pool 太小)
-        currentSessionWords = [...TOTAL_WORD_POOL].sort(() => 0.5 - Math.random()).slice(0, 30);
+    if(dayOfWeek >= 1 && dayOfWeek <= 5) { // 平日 10詞
+        const start = (diffDays * 10) % TOTAL_POOL.length;
+        currentWords = TOTAL_POOL.slice(start, start + 10);
+        document.getElementById('task-title').innerText = "平日任務：10個新詞";
+    } else if(dayOfWeek === 6) { // 週六 20詞 (最弱)
+        const weak = Object.entries(userData.fails).sort((a,b)=>b[1]-a[1]).slice(0,20).map(x=>x[0]);
+        currentWords = weak.length >= 5 ? weak : TOTAL_POOL.slice(0, 20);
+        document.getElementById('task-title').innerText = "週六複習：本週難詞";
+    } else { // 週日 30詞 (隨機)
+        currentWords = [...TOTAL_POOL].sort(()=>0.5-Math.random()).slice(0,30);
+        document.getElementById('task-title').innerText = "週日挑戰：回顧詞庫";
     }
-}
 
-function showWordAndStartFlash() {
-    stopFlash(); // 先清空舊的計時器
-    showCurrentWord();
-    
-    // 設定閃視計時器 (1.5秒一跳)
-    flashInterval = setInterval(() => {
-        goNextWord();
-    }, FLASH_SPEED);
-}
-
-function showCurrentWord() {
-    if (currentSessionWords.length === 0) return;
-    
-    const wordDisplay = document.getElementById('word-display');
-    const word = currentSessionWords[currentWordIdx];
-    
-    wordDisplay.innerText = word;
-    wordDisplay.classList.remove('correct'); // 清除成功樣式
-    
-    // 更新進度條
-    const progressPercent = ((currentWordIdx + 1) / currentSessionWords.length) * 100;
-    document.getElementById('progress-bar').style.width = `${progressPercent}%`;
-    
-    // 自動朗讀
-    speak(word);
-}
-
-function goNextWord() {
-    currentWordIdx++;
-    // 循環播放邏輯
-    if (currentWordIdx >= currentSessionWords.length) {
-        currentWordIdx = 0;
-    }
-    showCurrentWord();
-}
-
-function stopFlash() {
-    if (flashInterval) {
-        clearInterval(flashInterval);
-        flashInterval = null;
-    }
-}
-
-// 重置今日按鈕 (不管是否完成，都重新開始今日的10詞挑戰)
-function resetToday() {
-    // 重新強制生成今日 (todayStr) 的詞彙
-    generateDailyWords(todayStr);
-    currentWordIdx = 0;
-    
-    document.getElementById('word-display').classList.remove('correct');
-    document.getElementById('task-info').innerText = `今日任務 (重讀)`;
-    
-    // 重新開始閃視和辨識
-    showWordAndStartFlash();
-    startListening();
-}
-
-// --- 語音辨識核心 (與昨日 v5.6 信心值一致) ---
-function setupSpeechRecognition() {
-    if (!('webkitSpeechRecognition' in window)) {
-        document.getElementById('status-msg').innerText = "提示：此瀏覽器不支援語音辨識。";
-        return;
-    }
-    
-    recognition = new webkitSpeechRecognition();
-    recognition.lang = 'zh-HK'; // 設定粵語
-    recognition.continuous = true; // 持續監聽
-    recognition.interimResults = false; // 只取最終結果
-
-    recognition.onresult = (event) => {
-        // 如果正在朗讀，忽略辨識結果
-        if (isSpeaking) return;
-
-        let finalTranscript = '';
-        for (let i = event.resultIndex; i < event.results.length; ++i) {
-            if (event.results[i].isFinal) {
-                finalTranscript += event.results[i][0].transcript;
-            }
-        }
-        
-        if (finalTranscript === '') return;
-        
-        // 清理辨識結果
-        const heardText = finalTranscript.trim().replace(/[，。？！、\s]/g, '');
-        const targetWord = currentSessionWords[currentWordIdx];
-        
-        document.getElementById('status-msg').innerText = `聽到：${heardText}`;
-
-        // 比對邏輯
-        if (heardText === targetWord) {
-            handleVoiceSuccess();
-        } else {
-            // 辨識失敗，記錄次數 (用於週六)
-            if (targetWord) {
-                userData.failCounts[targetWord] = (userData.failCounts[targetWord] || 0) + 1;
-                saveData();
-            }
-            // 視覺回饋 (紅光閃爍)
-            document.getElementById('voice-indicator').style.color = '#e74c3c';
-            setTimeout(() => document.getElementById('voice-indicator').style.color = '', 400);
-        }
-    };
-
-    recognition.onerror = (event) => {
-        console.error("辨識出錯:", event.error);
-        if (event.error === 'network') document.getElementById('status-msg').innerText = "網絡連接失敗。";
-    };
-
-    recognition.onend = () => {
-        // 非主動停止的情況下，如果還在挑戰頁面，自動重啟
-        if (document.getElementById('challenge-view').style.display === 'flex') {
-            try { recognition.start(); } catch(e) {}
-        } else {
-            document.getElementById('voice-indicator').classList.remove('listening');
-        }
-    };
-}
-
-// 語音搶答成功處理
-function handleVoiceSuccess() {
-    stopFlash(); // 辨識成功，即刻停止舊嘅 1.5s 計時器
-    
-    const wordDisplay = document.getElementById('word-display');
-    wordDisplay.classList.add('correct'); // 變綠色+動畫
-    playSuccessSound(); // 播放成功短音
-
-    // 重置失敗次數 (識讀咗就唔算難詞)
-    userData.failCounts[currentSessionWords[currentWordIdx]] = 0;
-    saveData();
-
-    // 延遲 0.6 秒後跳下一題，防止太快睇唔到綠色
-    setTimeout(() => {
-        // 判斷是否為「最後一個新詞」
-        if (isAllTaskCompleted()) {
-            completeDailyTask();
-        } else {
-            // 跳下一題，並重啟 1.5s 閃視計時
-            currentWordIdx = (currentWordIdx + 1) % currentSessionWords.length;
-            // 如果跳咗之後發現係 0，代表循環咗，要判斷係咪平日模式 (平日唔循環)
-            if (currentWordIdx === 0 && currentSessionWords.length === 10) {
-                 // 平日模式讀完10個其實就完咗，但因為有失敗次數可能仲喺度
-                 // 這裡邏輯改為：語音辨識成功嘅詞會從現有清單暫時移除，直到清單清空
-                 handle平日VoiceSuccess();
-            } else {
-                showWordAndStartFlash(); 
-            }
-        }
-    }, 600);
-}
-
-// 平日 10 詞專用邏輯：讀對一個，清單少一個
-function handle平日VoiceSuccess() {
-    // 平日模式下，從 Session清單中暫時移除識讀嘅詞
-    currentSessionWords.splice(currentWordIdx, 1);
-    
-    if (currentSessionWords.length === 0) {
-        completeDailyTask();
-    } else {
-        // 移除後索引不需要加，因為後面的補上來了
-        if (currentWordIdx >= currentSessionWords.length) currentWordIdx = 0;
-        showWordAndStartFlash();
-    }
-}
-
-// 判斷任務是否完成
-function isAllTaskCompleted() {
-    const dayOfWeek = new Date().getDay();
-    if (dayOfWeek >= 1 && dayOfWeek <= 5) {
-        // 平日模式使用 splice 邏輯，在 handle平日VoiceSuccess 判斷
-        return false; 
-    } else {
-        // 週六日模式：讀對最後一個詞就算完，不需要全部清空 (因為平日未完)
-        // 這個邏輯Anthony沒特別講，我設定為：週六日只需讀完一張 Loop (20/30詞) 即可。
-        //Anthony 原意是必須語音辨識成功，所以這裡修改為：週六日也是讀對一個少一個
-        return false;
-    }
-}
-// 修改 handleVoiceSuccess 內的邏輯，統一改為：讀對一個，splice 一個。
-function handleVoiceSuccess() {
-    stopFlash();
-    const wordDisplay = document.getElementById('word-display');
-    wordDisplay.classList.add('correct');
-    playSuccessSound();
-
-    userData.failCounts[currentSessionWords[currentWordIdx]] = 0;
-    saveData();
-
-    setTimeout(() => {
-        currentSessionWords.splice(currentWordIdx, 1); // 讀對咗就由清單移除
-
-        if (currentSessionWords.length === 0) {
-            completeDailyTask();
-        } else {
-            // 索引修正
-            if (currentWordIdx >= currentSessionWords.length) currentWordIdx = 0;
-            showWordAndStartFlash(); // 重新顯示並開啟計時
-        }
-    }, 600);
-}
-
-// 完成今日任務
-function completeDailyTask() {
-    stopFlash();
-    stopListening();
-    
-    // 記錄今日已完成 (只有 todayStr 能觸發剔號)
-    // Anthony 構思是可以補做，所以補做舊日子都要給剔號
-    const currentTaskDate = document.querySelector('.day-box.today') ? todayStr : // 這邏輯有點複雜，暫時改為：今日做就給今日剔
-    // Anthony 構思是可以補做，所以補做舊日子都要給剔號
-    getCurrentTaskDate(); 
-    userData.completedDates[currentTaskDate] = true;
-    saveData();
-    
-    // 動畫與聲效
-    launch華麗 fireworks();
-    document.getElementById('word-display').innerText = "英雄通關！";
-    speak("峻宇妹妹，任務完成，好棒呀！");
-
-    setTimeout(showCalendar, 3500);
-}
-
-function getCurrentTaskDate() {
-    const info = document.getElementById('task-info').innerText;
-    if (info.includes("今日")) return todayStr;
-    // 補做模式下，如何獲取點擊的日期？
-    // 修改 startDailyTask，將日期存入全局變量
-    return window.currentTaskingDate; 
-}
-// 修改 startDailyTask
-function startDailyTask(dateStr) {
-    window.currentTaskingDate = dateStr; // 存入全局
-    // ... 原有代碼
-}
-
-
-function startListening() {
-    if (!recognition) return;
-    try { recognition.start(); } catch(e) {}
+    currentIdx = 0;
+    runFlash();
+    try { recognition.start(); } catch(e){}
     document.getElementById('voice-indicator').classList.add('listening');
-    document.getElementById('voice-indicator').style.color = '';
 }
 
-function stopListening() {
-    if (!recognition) return;
-    recognition.stop();
-    document.getElementById('voice-indicator').classList.remove('listening');
+function runFlash() {
+    if(flashTimer) clearInterval(flashTimer);
+    showWord();
+    flashTimer = setInterval(() => {
+        currentIdx = (currentIdx + 1) % currentWords.length;
+        showWord();
+    }, 1500);
 }
 
-// --- 公共工具 ---
-function speak(text) {
-    window.speechSynthesis.cancel();
-    isSpeaking = true;
-    const msg = new SpeechSynthesisUtterance(text);
-    msg.lang = 'zh-HK';
-    msg.rate = 1.1; // 稍微快一點點
-    msg.onend = () => { isSpeaking = false; };
-    window.speechSynthesis.speak(msg);
+function showWord() {
+    if(currentWords.length === 0) return;
+    const display = document.getElementById('word-display');
+    display.innerText = currentWords[currentIdx];
+    display.classList.remove('correct');
+    
+    const progress = ((currentWords.length === 0) ? 100 : (1 - currentWords.length/10)) * 10; // 僅示意
+    document.getElementById('progress-bar').style.width = `0%`; // 這裡簡化，完成才跳
+    
+    speak(currentWords[currentIdx]);
 }
 
-function playSuccessSound() {
-    try {
-        const ctx = new (window.AudioContext || window.webkitAudioContext)();
-        const osc = ctx.createOscillator(); const g = ctx.createGain();
-        osc.connect(g); g.connect(ctx.destination);
-        osc.frequency.setValueAtTime(880, ctx.currentTime);
-        g.gain.setValueAtTime(0.1, ctx.currentTime); osc.start(); osc.stop(ctx.currentTime + 0.15);
-    } catch(e) {}
+function setupRecognition() {
+    const sr = window.SpeechRecognition || window.webkitSpeechRecognition;
+    recognition = new sr();
+    recognition.lang = 'zh-HK';
+    recognition.continuous = true;
+    recognition.onresult = (e) => {
+        const text = e.results[e.results.length-1][0].transcript.replace(/[，。？！\s]/g, '');
+        const target = currentWords[currentIdx];
+        document.getElementById('status-msg').innerText = `聽：${text}`;
+        
+        if(text.includes(target)) {
+            handleSuccess();
+        } else {
+            userData.fails[target] = (userData.fails[target] || 0) + 1;
+            save();
+        }
+    };
+    recognition.onend = () => { if(document.getElementById('challenge-view').style.display==='flex') recognition.start(); };
 }
 
-function saveData() { localStorage.setItem(STORAGE_KEY, JSON.stringify(userData)); }
-function exportData() { prompt("峻宇妹妹的戰力代碼 (請全選複製)：", btoa(encodeURIComponent(JSON.stringify(userData)))); }
+function handleSuccess() {
+    clearInterval(flashTimer);
+    document.getElementById('word-display').classList.add('correct');
+    
+    setTimeout(() => {
+        currentWords.splice(currentIdx, 1);
+        if(currentWords.length === 0) {
+            finish();
+        } else {
+            if(currentIdx >= currentWords.length) currentIdx = 0;
+            runFlash();
+        }
+    }, 600);
+}
 
-// --- 煙花動畫 (全屏粒子效果) ---
-function launch華麗 fireworks() {
-    const container = document.body;
-    for (let i = 0; i < 50; i++) {
-        const p = document.createElement('div');
-        p.className = 'firework-particle';
-        p.style.left = '50%'; p.style.top = '50%';
-        p.style.backgroundColor = `hsl(${Math.random()*360}, 100%, 60%)`;
-        p.style.setProperty('--tx', `${(Math.random()-0.5) * 800}px`);
-        p.style.setProperty('--ty', `${(Math.random()-0.5) * 600}px`);
-        // 使用 CSS 變量控制方向
-        p.style.animation = `fireworksAnimation ${0.5 + Math.random()}s ease-out forwards`;
-        container.appendChild(p);
-        setTimeout(() => p.remove(), 1500);
-    }
+function finish() {
+    userData.completed[window.taskingDate] = true;
+    save();
+    document.getElementById('word-display').innerText = "Mission Clear!";
+    speak("好棒呀！任務完成！");
+    setTimeout(renderCalendar, 2000);
 }
-// 修正煙花 CSS 變量
-const style = document.createElement('style');
-style.innerHTML = `
-@keyframes fireworksAnimation {
-    0% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
-    100% { transform: translate(calc(-50% + var(--tx)), calc(-50% + var(--ty))) scale(0.5); opacity: 0; }
-}
-`;
-document.head.appendChild(style);
+
+function resetToday() { startTask(window.taskingDate); }
+function showCalendar() { clearInterval(flashTimer); recognition.stop(); renderCalendar(); }
+function speak(t) { window.speechSynthesis.cancel(); const m=new SpeechSynthesisUtterance(t); m.lang='zh-HK'; window.speechSynthesis.speak(m); }
+function save() { localStorage.setItem('hero_daily_v1_2', JSON.stringify(userData)); }
+function exportData() { prompt("戰力代碼：", btoa(JSON.stringify(userData))); }
 
 init();
 </script>
