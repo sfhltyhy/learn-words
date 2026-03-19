@@ -3,66 +3,71 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>認字英雄傳：每日任務版 v1.2</title>
+    <title>認字英雄傳 v1.3 - 聽讀分離版</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <style>
-        :root { --primary: #2c3e50; --accent: #f1c40f; --bg: #ecf0f1; --success: #27ae60; --fail: #e74c3c; }
+        :root { --primary: #2c3e50; --accent: #f1c40f; --success: #27ae60; --fail: #e74c3c; --bg: #f5f6fa; }
         body { font-family: 'PingFang HK', 'Microsoft JhengHei', sans-serif; background: var(--bg); margin: 0; display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
         
-        /* 月曆導航 */
+        /* 月曆樣式 */
         #calendar-view { padding: 15px; overflow-y: auto; flex: 1; display: flex; flex-direction: column; }
-        .calendar-nav { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; background: white; padding: 10px; border-radius: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
-        .nav-btn { background: var(--primary); color: white; border: none; padding: 8px 15px; border-radius: 5px; cursor: pointer; }
-        
-        .calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 5px; }
-        .weekday { text-align: center; font-size: 0.8rem; color: #7f8c8d; padding-bottom: 5px; }
-        .day-box { background: white; border-radius: 8px; aspect-ratio: 1; display: flex; align-items: center; justify-content: center; position: relative; border: 1px solid #ddd; font-size: 1.1rem; font-weight: bold; cursor: pointer; }
-        .day-box.today { background: #fffde7; border: 2px solid var(--accent); }
-        .day-box.completed::after { content: '✅'; position: absolute; bottom: 2px; right: 2px; font-size: 10px; }
-        .day-box.future { opacity: 0.4; pointer-events: none; }
-        .day-box.missed { background: #fff5f5; border-color: #fab1a0; }
+        .calendar-nav { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; background: white; padding: 10px; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+        .nav-btn { background: var(--primary); color: white; border: none; padding: 10px 18px; border-radius: 8px; cursor: pointer; }
+        .calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; }
+        .day-box { background: white; border-radius: 10px; aspect-ratio: 1; display: flex; align-items: center; justify-content: center; position: relative; border: 1px solid #ddd; font-weight: bold; cursor: pointer; transition: 0.2s; }
+        .day-box.today { border: 3px solid var(--accent); background: #fffde7; }
+        .day-box.completed::after { content: '✅'; position: absolute; bottom: 3px; right: 3px; font-size: 10px; }
+        .day-box.future { opacity: 0.3; pointer-events: none; }
 
         /* 挑戰介面 */
-        #challenge-view { display: none; flex: 1; flex-direction: column; align-items: center; justify-content: center; padding: 20px; text-align: center; background: white; }
-        #word-display { font-size: 5.5rem; font-weight: 900; color: var(--primary); margin-bottom: 30px; letter-spacing: 5px; min-height: 1.2em; }
-        #word-display.correct { color: var(--success); transform: scale(1.1); transition: 0.2s; }
+        #challenge-view { display: none; flex: 1; flex-direction: column; align-items: center; justify-content: space-around; padding: 20px; background: white; text-align: center; }
+        #word-display { font-size: 6rem; font-weight: 900; color: var(--primary); min-height: 1.2em; letter-spacing: 5px; transition: all 0.3s; }
+        #word-display.correct { color: var(--success); transform: scale(1.2); }
         
-        #voice-indicator { width: 70px; height: 70px; border-radius: 50%; background: #f8f9fa; display: flex; align-items: center; justify-content: center; font-size: 1.5rem; border: 3px solid #eee; margin-bottom: 15px; }
-        .listening { border-color: var(--fail); color: var(--fail); animation: pulse 1.5s infinite; }
-        @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(231,76,60,0.4); } 100% { box-shadow: 0 0 0 15px rgba(231,76,60,0); } }
+        /* 模式控制 */
+        .mode-indicator { padding: 8px 20px; border-radius: 20px; font-weight: bold; margin-bottom: 10px; }
+        .mode-listen { background: #dff9fb; color: #130f40; border: 1px solid #7ed6df; }
+        .mode-read { background: #fff5f5; color: #eb4d4b; border: 1px solid #ff7979; }
 
-        .progress-bar { position: fixed; top: 0; left: 0; height: 6px; background: var(--success); transition: width 0.3s; z-index: 100; }
-        .btn-back { position: fixed; top: 15px; left: 15px; padding: 8px 15px; border-radius: 20px; border: 1px solid #ddd; background: white; z-index: 110; }
-        .btn-reset { background: #95a5a6; color: white; padding: 10px 20px; border-radius: 20px; border: none; margin-top: 20px; }
+        #voice-mic { width: 80px; height: 80px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 2rem; border: 4px solid #eee; transition: 0.3s; color: #ccc; }
+        .active-mic { border-color: var(--fail) !important; color: var(--fail) !important; animation: pulse 1.5s infinite; }
+        @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(231,76,60,0.4); } 100% { box-shadow: 0 0 0 20px rgba(231,76,60,0); } }
+
+        .btn-main { width: 80%; max-width: 300px; padding: 15px; border-radius: 50px; border: none; font-size: 1.2rem; font-weight: bold; cursor: pointer; box-shadow: 0 4px 15px rgba(0,0,0,0.1); transition: 0.3s; }
+        .btn-challenge { background: var(--fail); color: white; }
+        .btn-return { background: var(--primary); color: white; display: none; }
+        
+        .progress-text { font-size: 0.9rem; color: #95a5a6; margin-top: 5px; }
     </style>
 </head>
 <body>
 
-<div class="progress-bar" id="progress-bar"></div>
-
 <div id="calendar-view">
     <div class="calendar-nav">
-        <button class="nav-btn" onclick="changeMonth(-1)"><i class="fas fa-chevron-left"></i></button>
-        <h2 id="month-label" style="margin:0; font-size:1.2rem;">2026年3月</h2>
-        <button class="nav-btn" onclick="changeMonth(1)"><i class="fas fa-chevron-right"></i></button>
+        <button class="nav-btn" onclick="changeMonth(-1)"><i class="fas fa-arrow-left"></i></button>
+        <h2 id="month-label">2026年3月</h2>
+        <button class="nav-btn" onclick="changeMonth(1)"><i class="fas fa-arrow-right"></i></button>
     </div>
     <div class="calendar-grid" id="calendar-grid"></div>
-    <div style="text-align:center; padding: 20px;">
-        <button onclick="exportData()" style="font-size:0.7rem; color:#999; border:none; background:none; text-decoration:underline;">備份戰力代碼</button>
-    </div>
 </div>
 
 <div id="challenge-view">
-    <button class="btn-back" onclick="showCalendar()"><i class="fas fa-calendar-alt"></i> 返回</button>
-    <div id="task-title" style="color:#7f8c8d; margin-bottom:10px; font-weight:bold;"></div>
+    <button style="position:fixed; top:15px; left:15px; border:none; background:none; font-size:1.5rem;" onclick="exitToCalendar()"><i class="fas fa-times-circle"></i></button>
+    
+    <div id="mode-tag" class="mode-indicator mode-listen">正在自動閃視 (聽)</div>
+    <div id="task-info" class="progress-text">剩餘詞語：10 個</div>
+
     <div id="word-display">載入中</div>
-    <div id="voice-indicator"><i class="fas fa-microphone"></i></div>
-    <div id="status-msg" style="color:#666; font-size:0.9rem; height:20px;">等待語音...</div>
-    <button class="btn-reset" onclick="resetToday()">重做當天任務</button>
+    
+    <div id="voice-mic"><i class="fas fa-microphone"></i></div>
+    <div id="status-msg" style="height:25px; color:#666;"></div>
+
+    <button id="btn-challenge" class="btn-main btn-challenge" onclick="switchToReadMode()">我要挑戰 (讀)</button>
+    <button id="btn-return" class="btn-main btn-return" onclick="switchToListenMode()">返回閃視模式</button>
 </div>
 
 <script>
-// --- 完整詞庫 (P2-P6) ---
+// --- 字庫與配置 ---
 const p2Words = "習慣,良好,健康,強壯,精神,飲食,保持,預防,準時,整潔,守禮,誠實,勤奮,責任,按時,睡覺,早起,刷牙,洗臉,運動,營養,偏食,零食,衛生,收拾,整齊,自動自覺,勉強,蔬菜,水果,固定,作息,充足,休息,均衡,操場,禮堂,圖書館,集會,比賽,表演,練習,整理,借書,歸還,規則,互相,合作,禮讓,獎勵,校服,領帶,校徽,笔盒,膠水,剪刀,顏色筆,釘書機,尺子,筆記簿,處罰,專心,認真,思考,發問,答案,舉手,遲到,缺席,街道,熱鬧,商店,馬路,天橋,公園,診所,車站,郵局,銀行,街市,超市,餐廳,麵包店,理髮店,醫院,警察局,消防局,遊樂場,住宅,高樓,鄰居,保安員,電梯,自動電梯,噴水池,花槽,走廊,大門,圍欄,社區,繁忙,巴士,地鐵,渡輪,飛機,火車,電車,私家車,貨車,小巴,救護車,警察車,單車,的士,站牌,碼頭,機場,鐵軌,紅綠燈,斑馬線,安全,司機,乘客,座位,扶手,車廂,隧道,超速,碰撞,遵守,注意,標誌,行人,路口,陽光,空氣,溫暖,季節,春天,夏天,秋天,冬天,潮濕,乾燥,炎熱,寒冷,刮風,下雨,閃電,結冰,積雪,霧氣,彩虹,雷暴,暴雨,天文台,預報,氣溫,涼快,悶熱,結霜,變化,露水,微風,強烈,氣候,涼爽,播種,收穫,早餐,午餐,晚餐,點心,美味,營養,飽足,口渴,甜味,酸味,苦味,辣味,麵包,雞團,牛奶,米飯,麵條,稀飯,肉類,海鮮,湯水,果汁,甜品,飽滿,香脆,熱騰騰,冰涼,味道,調味,餐具,服務,結帳,浪費,珍惜".split(',');
 const p3Words = "興奮,難過,焦急,驚奇,懷疑,驕傲,慚愧,慶幸,盼望,思念,感動,委屈,憤怒,平靜,得意,害怕,擔憂,滿意,後悔,驚訝,傷心,愉快,煩惱,痛快,焦慮,親切,溫柔,憤恨,遺憾,痛心,失望,絕望,振奮,驚慌,害羞,寬慰,繁華,寧靜,壯觀,朦朧,翠綠,茂盛,凋謝,清脆,寬闊,狹窄,陡峭,崎嶇,清澈,湛藍,五光十色,柔軟,堅硬,粗糙,平滑,細緻,鮮艷,灰暗,透明,沉重,輕巧,濃郁,清淡,刺耳,芬芳,冰冷,滾燙,倒影,環繞,延綿,遼闊,從前,神奇,魔幻,仙女,城堡,森林,怪物,變幻,願望,善良,邪惡,報答,誠實,結果,後來,突然,竟然,果然,最後,經歷,解決,希望,夢想,道理,困難,容易,珍惜,浪費,保護,破壞,重要,特別,發現,觀察,試驗,結局,遭遇,高山,深谷,河流,海洋,平原,島嶼,沙漠,瀑布,泉水,港口,沙灘,懸崖,叢林,溪流,湖泊,山脈,盆地,丘陵,濕地,旋轉,搖晃,跳動,擺動,滑行,飛翔,降落,漂浮,沉沒,燃燒,爆炸,分裂,結合,掩護,進攻,防守,追逐".split(',');
 const p4Words = "觀察,實驗,證明,發現,發明,創造,想像,豐富,精彩,深刻,欣賞,讚美,批評,建議,改善,效率,節省,累積,經驗,智慧,慈祥,嚴厲,和藹,剛強,內向,外向,謙虛,傲慢,機靈,穩重,馬虎,細心,慷慨,吝嗇,感激,憐憫,同情,懷念,敬佩,羨慕,嫉妒,厭惡,原諒,信任,孤獨,毅力,果斷,正直,奸詐,頑強,平易近人,默默無聞,堅持不懈,不屈不撓,一心一意,自言自語,五顏六色,走馬看花,目瞪口呆,大公無私,力不從心,半途而廢,名列前茅,垂頭喪氣,胸有成竹,得意洋洋,破口大罵,悶悶不樂,視而不見,無影無蹤,萬眾一心,情不自禁,千變萬化,大海撈針,守口如瓶,廢寢忘食,驚心動魄,隨遇而安,異想天開,出口成章,入木三分,名副其實,大言不慚,不知所措,以身作則,因材施教,老馬識途,再接再厲,百折不撓,自強不息,忍辱負重,走投無路,其貌不揚,刻骨銘心,念念不忘,如同,彷彿,閃爍,襯托,比喻,生動,感人,層次,細膩,描繪,總結,鋪陳,擬人,誇張,對比,排比,反問,設問,呼應,過渡,聯想,引用,渲染,側寫,伏筆,精煉,流暢,生澀,含蓄,直白,主旨,段落,概括,結構,昇華,意象".split(',');
@@ -71,92 +76,80 @@ const p6Words = "前程似錦,後會有期,萍水相逢,朝夕相對,患難與�
 const examWords = "判斷,分析,解釋,列舉,歸納,比較,對照,選出,填寫,圈出,劃線,修正,補充,根據,引用,理由,原因,結果,影響,異同,特點,特徵,適當,錯誤,正確,正確答案,下列,以上,未必,必定,可能,顯示,反映,關鍵,主旨,中心思想,段意,承上啟下,伏筆,呼應,性格,心情,描寫,感受,啟發,體會,寓意,比喻,本體,喻體,擬人,排比,對比,誇張,反問,設問,疊字,對偶,感官,視覺,聽覺,嗅覺,相差,共,餘下,平分,平均,原本,現有,倍數,一半,增加,減少,求,計算,橫式,直式,單位,估算,實驗,觀察,記錄,結論,公平,變量,假設,功能,構造,演變,趨勢,資料,圖表,比例,分配,資源,環保,責任,權利,義務,借代,反襯,雙關,層遞,頂真,聯想,想像,象徵,反語,開門見山,卒章顯志,寓情於景,借景抒情,托物言志,先抑後揚,側面描寫,行動描寫,心理描寫".split(',');
 
 const TOTAL_POOL = [...p2Words, ...p3Words, ...p4Words, ...p5Words, ...p6Words, ...examWords];
+const START_DATE = new Date("2026-03-19");
 
-// --- 設定 ---
-const START_FIXED_DATE = new Date("2026-03-19"); // 鎖定從今日開始
-let viewDate = new Date(); // 月曆顯示的日期
-let userData = JSON.parse(localStorage.getItem('hero_daily_v1_2')) || { completed: {}, fails: {} };
+let userData = JSON.parse(localStorage.getItem('hero_v1.3')) || { completed: {}, fails: {} };
+let viewDate = new Date();
 let currentWords = [], currentIdx = 0, flashTimer = null, recognition = null;
+let isReadMode = false;
 
-const todayStr = new Date().toLocaleDateString('sv-SE'); // YYYY-MM-DD
-
+// --- 初始化 ---
 function init() {
     setupRecognition();
-    if (!userData.completed[todayStr]) {
-        startTask(todayStr);
-    } else {
-        renderCalendar();
-    }
+    const todayStr = new Date().toLocaleDateString('sv-SE');
+    if (!userData.completed[todayStr]) startTask(todayStr); else renderCalendar();
 }
 
-// --- 月曆邏輯 ---
-function changeMonth(step) {
-    viewDate.setMonth(viewDate.getMonth() + step);
-    renderCalendar();
-}
-
+// --- 月曆導航 ---
+function changeMonth(s) { viewDate.setMonth(viewDate.getMonth() + s); renderCalendar(); }
 function renderCalendar() {
     document.getElementById('calendar-view').style.display = 'flex';
     document.getElementById('challenge-view').style.display = 'none';
-    
-    const grid = document.getElementById('calendar-grid');
-    grid.innerHTML = '';
+    const grid = document.getElementById('calendar-grid'); grid.innerHTML = '';
     const y = viewDate.getFullYear(), m = viewDate.getMonth();
     document.getElementById('month-label').innerText = `${y}年${m + 1}月`;
-
-    // 星期頭
-    "日一二三四五六".split('').forEach(d => {
-        const div = document.createElement('div'); div.className='weekday'; div.innerText=d; grid.appendChild(div);
-    });
-
     const firstDay = new Date(y, m, 1).getDay();
     const totalDays = new Date(y, m + 1, 0).getDate();
-
     for(let i=0; i<firstDay; i++) grid.appendChild(document.createElement('div'));
-
     for(let d=1; d<=totalDays; d++) {
         const dStr = `${y}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
-        const div = document.createElement('div');
-        div.className = 'day-box';
-        if(dStr === todayStr) div.classList.add('today');
+        const div = document.createElement('div'); div.className = 'day-box';
+        if(dStr === new Date().toLocaleDateString('sv-SE')) div.classList.add('today');
         if(userData.completed[dStr]) div.classList.add('completed');
-        if(new Date(dStr) < START_FIXED_DATE && dStr !== todayStr) div.style.opacity = '0.2';
-        if(new Date(dStr) > new Date(todayStr)) div.classList.add('future');
-        
+        if(new Date(dStr) > new Date()) div.classList.add('future');
         div.innerText = d;
-        div.onclick = () => { if(new Date(dStr) <= new Date(todayStr)) startTask(dStr); };
+        div.onclick = () => { if(new Date(dStr) <= new Date()) startTask(dStr); };
         grid.appendChild(div);
     }
 }
 
-// --- 任務邏輯 ---
+// --- 任務流程 ---
 function startTask(dateStr) {
-    window.taskingDate = dateStr;
+    window.activeDate = dateStr;
     document.getElementById('calendar-view').style.display = 'none';
     document.getElementById('challenge-view').style.display = 'flex';
     
-    // 計算與 3月19日 差距的天數
-    const targetDate = new Date(dateStr);
-    const diffDays = Math.floor((targetDate - START_FIXED_DATE) / 86400000);
-    const dayOfWeek = targetDate.getDay();
+    // 分配詞語 (同 v1.2 邏輯)
+    const diffDays = Math.floor((new Date(dateStr) - START_DATE) / 86400000);
+    const startIdx = Math.max(0, diffDays * 10) % TOTAL_POOL.length;
+    currentWords = TOTAL_POOL.slice(startIdx, startIdx + 10);
+    
+    switchToListenMode();
+}
 
-    if(dayOfWeek >= 1 && dayOfWeek <= 5) { // 平日 10詞
-        const start = (diffDays * 10) % TOTAL_POOL.length;
-        currentWords = TOTAL_POOL.slice(start, start + 10);
-        document.getElementById('task-title').innerText = "平日任務：10個新詞";
-    } else if(dayOfWeek === 6) { // 週六 20詞 (最弱)
-        const weak = Object.entries(userData.fails).sort((a,b)=>b[1]-a[1]).slice(0,20).map(x=>x[0]);
-        currentWords = weak.length >= 5 ? weak : TOTAL_POOL.slice(0, 20);
-        document.getElementById('task-title').innerText = "週六複習：本週難詞";
-    } else { // 週日 30詞 (隨機)
-        currentWords = [...TOTAL_POOL].sort(()=>0.5-Math.random()).slice(0,30);
-        document.getElementById('task-title').innerText = "週日挑戰：回顧詞庫";
-    }
-
-    currentIdx = 0;
+function switchToListenMode() {
+    isReadMode = false;
+    stopRecognition();
+    document.getElementById('mode-tag').className = "mode-indicator mode-listen";
+    document.getElementById('mode-tag').innerText = "正在自動閃視 (聽)";
+    document.getElementById('btn-challenge').style.display = "block";
+    document.getElementById('btn-return').style.display = "none";
+    document.getElementById('voice-mic').classList.remove('active-mic');
+    
     runFlash();
-    try { recognition.start(); } catch(e){}
-    document.getElementById('voice-indicator').classList.add('listening');
+}
+
+function switchToReadMode() {
+    isReadMode = true;
+    clearInterval(flashTimer);
+    document.getElementById('mode-tag').className = "mode-indicator mode-read";
+    document.getElementById('mode-tag').innerText = "挑戰模式 (請讀出此字)";
+    document.getElementById('btn-challenge').style.display = "none";
+    document.getElementById('btn-return').style.display = "block";
+    document.getElementById('voice-mic').classList.add('active-mic');
+    
+    startRecognition();
+    showWord();
 }
 
 function runFlash() {
@@ -169,65 +162,62 @@ function runFlash() {
 }
 
 function showWord() {
-    if(currentWords.length === 0) return;
     const display = document.getElementById('word-display');
-    display.innerText = currentWords[currentIdx];
+    const word = currentWords[currentIdx];
+    display.innerText = word || "完";
     display.classList.remove('correct');
-    
-    const progress = ((currentWords.length === 0) ? 100 : (1 - currentWords.length/10)) * 10; // 僅示意
-    document.getElementById('progress-bar').style.width = `0%`; // 這裡簡化，完成才跳
-    
-    speak(currentWords[currentIdx]);
+    document.getElementById('task-info').innerText = `剩餘詞語：${currentWords.length} 個`;
+    speak(word);
 }
 
+// --- 語音辨識 ---
 function setupRecognition() {
     const sr = window.SpeechRecognition || window.webkitSpeechRecognition;
     recognition = new sr();
     recognition.lang = 'zh-HK';
     recognition.continuous = true;
     recognition.onresult = (e) => {
+        if(!isReadMode) return;
         const text = e.results[e.results.length-1][0].transcript.replace(/[，。？！\s]/g, '');
         const target = currentWords[currentIdx];
-        document.getElementById('status-msg').innerText = `聽：${text}`;
+        document.getElementById('status-msg').innerText = `聽到：${text}`;
         
         if(text.includes(target)) {
-            handleSuccess();
-        } else {
-            userData.fails[target] = (userData.fails[target] || 0) + 1;
-            save();
+            handleSuccess(target);
         }
     };
-    recognition.onend = () => { if(document.getElementById('challenge-view').style.display==='flex') recognition.start(); };
 }
 
-function handleSuccess() {
-    clearInterval(flashTimer);
-    document.getElementById('word-display').classList.add('correct');
+function handleSuccess(target) {
+    const display = document.getElementById('word-display');
+    display.classList.add('correct');
     
+    // 排除法：從清單移除答對的詞
     setTimeout(() => {
         currentWords.splice(currentIdx, 1);
         if(currentWords.length === 0) {
-            finish();
+            finishTask();
         } else {
             if(currentIdx >= currentWords.length) currentIdx = 0;
-            runFlash();
+            showWord(); // 停在下一個詞，等待讀音
         }
-    }, 600);
+    }, 800);
 }
 
-function finish() {
-    userData.completed[window.taskingDate] = true;
-    save();
-    document.getElementById('word-display').innerText = "Mission Clear!";
-    speak("好棒呀！任務完成！");
-    setTimeout(renderCalendar, 2000);
+function finishTask() {
+    stopRecognition();
+    userData.completed[window.activeDate] = true;
+    localStorage.setItem('hero_v1.3', JSON.stringify(userData));
+    document.getElementById('word-display').innerText = "英雄通關！";
+    speak("好棒呀！全部讀啱晒！");
+    setTimeout(renderCalendar, 2500);
 }
 
-function resetToday() { startTask(window.taskingDate); }
-function showCalendar() { clearInterval(flashTimer); recognition.stop(); renderCalendar(); }
-function speak(t) { window.speechSynthesis.cancel(); const m=new SpeechSynthesisUtterance(t); m.lang='zh-HK'; window.speechSynthesis.speak(m); }
-function save() { localStorage.setItem('hero_daily_v1_2', JSON.stringify(userData)); }
-function exportData() { prompt("戰力代碼：", btoa(JSON.stringify(userData))); }
+function startRecognition() { try { recognition.start(); } catch(e){} }
+function stopRecognition() { try { recognition.stop(); } catch(e){} }
+function speak(t) { if(!t)return; window.speechSynthesis.cancel(); const m=new SpeechSynthesisUtterance(t); m.lang='zh-HK'; window.speechSynthesis.speak(m); }
+function exitToCalendar() { clearInterval(flashTimer); stopRecognition(); renderCalendar(); }
+function changeMonth(s) { viewDate.setMonth(viewDate.getMonth() + s); renderCalendar(); }
 
 init();
 </script>
