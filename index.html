@@ -162,24 +162,48 @@ function startTask(dateStr) {
     const targetDate = new Date(dateStr + "T00:00:00");
     const diffDays = Math.floor((targetDate - START_LIMIT) / 86400000);
     const dayOfWeek = targetDate.getDay();
+    
+    // 💡 計算到「今天」為止，按進度應該已經學過的總詞池範圍
+    // 每一個平日進度是 10 個詞，所以計算到當前天數對應的 index
+    const totalLearnedIndex = (diffDays + 1) * 10;
+    const learnedPool = TOTAL_POOL.slice(0, Math.min(totalLearnedIndex, TOTAL_POOL.length));
+    
     let fullList = [];
     
     if(dayOfWeek >= 1 && dayOfWeek <= 5) {
+        // 平日：維持 10 個新詞
         const startIdx = (diffDays * 10) % TOTAL_POOL.length;
         fullList = TOTAL_POOL.slice(startIdx, startIdx + 10);
     } else if(dayOfWeek === 6) {
-        fullList = Object.entries(userData.fails).filter(x=>x[1]>0).sort((a,b)=>b[1]-a[1]).slice(0,20).map(x=>x[0]);
-        if(fullList.length < 5) fullList = TOTAL_POOL.slice(0, 20);
+        // 星期六：錯字特訓 (改為 15 個)
+        // 優先從已學過的範圍中找錯字
+        let fails = Object.entries(userData.fails)
+            .filter(x => x[1] > 0 && learnedPool.includes(x[0]))
+            .sort((a,b) => b[1] - a[1])
+            .map(x => x[0]);
+            
+        if(fails.length >= 15) {
+            fullList = fails.slice(0, 15);
+        } else {
+            // 如果錯字不夠 15 個，從已學過的詞池隨機補齊
+            const extra = learnedPool.filter(w => !fails.includes(w)).sort(() => 0.5 - Math.random());
+            fullList = [...fails, ...extra].slice(0, 15);
+        }
     } else {
-        fullList = [...TOTAL_POOL].sort(()=>0.5-Math.random()).slice(0,30);
+        // 星期日：隨機複習 (改為 15 個，且只從已學過的 learnedPool 抽)
+        fullList = [...learnedPool].sort(() => 0.5 - Math.random()).slice(0, 15);
     }
 
     // 斷點續傳：過濾當天已讀正確的詞
     const doneToday = userData.daily_progress[dateStr] || [];
     currentWords = fullList.filter(w => !doneToday.includes(w));
 
-    if(currentWords.length === 0 && fullList.length > 0) finish();
-    else { currentIdx = 0; switchToListenMode(); }
+    if(currentWords.length === 0 && fullList.length > 0) {
+        finish();
+    } else {
+        currentIdx = 0;
+        switchToListenMode();
+    }
 }
 
 // --- 模式切換與控制 ---
