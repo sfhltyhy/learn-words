@@ -178,7 +178,11 @@ function showWord() {
     display.innerText = word || "完";
     display.classList.remove('correct');
     document.getElementById('task-info').innerText = `剩餘：${currentWords.length} 詞`;
-    speak(word);
+    
+    // 關鍵修改：只有在「非挑戰模式」(即聽模式) 時才自動朗讀
+    if (!isReadMode) {
+        speak(word);
+    }
 }
 
 function setupRecognition() {
