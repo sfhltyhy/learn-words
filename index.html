@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>認字英雄傳</title>
+    <title>認字英雄傳 v1.5 - 數據管理版</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <style>
         :root { --primary: #2c3e50; --accent: #f1c40f; --success: #27ae60; --fail: #e74c3c; --bg: #f5f6fa; }
@@ -19,6 +19,13 @@
         .day-box.completed::after { content: '✅'; position: absolute; bottom: 3px; right: 3px; font-size: 10px; }
         .day-box.locked { background: #eee !important; color: #bbb !important; cursor: not-allowed !important; opacity: 0.5; border: none; }
         .day-box.future { opacity: 0.3; pointer-events: none; }
+
+        /* 數據管理區 */
+        .admin-section { margin-top: 30px; padding: 15px; background: #fff; border-radius: 12px; border: 1px dashed #ccc; }
+        .admin-title { font-size: 0.9rem; font-weight: bold; color: #7f8c8d; margin-bottom: 10px; display: block; }
+        .admin-btns { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+        .btn-small { padding: 8px; font-size: 0.8rem; border-radius: 6px; border: 1px solid #ddd; cursor: pointer; background: #fff; }
+        .btn-danger { color: var(--fail); border-color: var(--fail); }
 
         /* 挑戰介面 */
         #challenge-view { display: none; flex: 1; flex-direction: column; align-items: center; justify-content: space-around; padding: 20px; background: white; text-align: center; }
@@ -48,11 +55,20 @@
         <button class="nav-btn" onclick="changeMonth(1)"><i class="fas fa-arrow-right"></i></button>
     </div>
     <div class="calendar-grid" id="calendar-grid"></div>
+
+    <div class="admin-section">
+        <span class="admin-title"><i class="fas fa-tools"></i> 數據管理 (換機/重設)</span>
+        <div class="admin-btns">
+            <button class="btn-small" onclick="exportData()"><i class="fas fa-copy"></i> 匯出進度</button>
+            <button class="btn-small" onclick="importData()"><i class="fas fa-paste"></i> 匯入進度</button>
+            <button class="btn-small btn-danger" onclick="resetData()" style="grid-column: span 2;"><i class="fas fa-trash-alt"></i> 重設所有記錄 (小心！)</button>
+        </div>
+    </div>
 </div>
 
 <div id="challenge-view">
     <button style="position:fixed; top:15px; left:15px; border:none; background:none; font-size:1.5rem;" onclick="exitToCalendar()"><i class="fas fa-times-circle"></i></button>
-    <div id="mode-tag" class="mode-indicator mode-listen">自動閃視 (聽)</div>
+    <div id="mode-tag" class="mode-indicator mode-listen">自動閃視 (聽中...)</div>
     <div id="task-info" class="progress-text">剩餘：10 詞</div>
     <div id="word-display">載入中</div>
     <div id="voice-mic"><i class="fas fa-microphone"></i></div>
@@ -62,19 +78,19 @@
 </div>
 
 <script>
-// --- 完整整合詞庫 ---
+// --- 詞庫與基礎設置 ---
 const p2Words = "習慣,良好,健康,強壯,精神,飲食,保持,預防,準時,整潔,守禮,誠實,勤奮,責任,按時,睡覺,早起,刷牙,洗臉,運動,營養,偏食,零食,衛生,收拾,整齊,自動自覺,勉強,蔬菜,水果,固定,作息,充足,休息,均衡,操場,禮堂,圖書館,集會,比賽,表演,練習,整理,借書,歸還,規則,互相,合作,禮讓,獎勵,校服,領帶,校徽,笔盒,膠水,剪刀,顏色筆,釘書機,尺子,筆記簿,處罰,專心,認真,思考,發問,答案,舉手,遲到,缺席,街道,熱鬧,商店,馬路,天橋,公園,診所,車站,郵局,銀行,街市,超市,餐廳,麵包店,理髮店,醫院,警察局,消防局,遊樂場,住宅,高樓,鄰居,保安員,電梯,自動電梯,噴水池,花槽,走廊,大門,圍欄,社區,繁忙,巴士,地鐵,渡輪,飛機,火車,電車,私家車,貨車,小巴,救護車,警察車,單車,的士,站牌,碼頭,機場,鐵軌,紅綠燈,斑馬線,安全,司機,乘客,座位,扶手,車廂,隧道,超速,碰撞,遵守,注意,標誌,行人,路口,陽光,空氣,溫暖,季節,春天,夏天,秋天,冬天,潮濕,乾燥,炎熱,寒冷,刮風,下雨,閃電,結冰,積雪,霧氣,彩虹,雷暴,暴雨,天文台,預報,氣溫,涼快,悶熱,結霜,變化,露水,微風,強烈,氣候,涼爽,播種,收穫,早餐,午餐,晚餐,點心,美味,營養,飽足,口渴,甜味,酸味,苦味,辣味,麵包,雞團,牛奶,米飯,麵條,稀飯,肉類,海鮮,湯水,果汁,甜品,飽滿,香脆,熱騰騰,冰涼,味道,調味,餐具,服務,結帳,浪費,珍惜".split(',');
 const p3Words = "興奮,難過,焦急,驚奇,懷疑,驕傲,慚愧,慶幸,盼望,思念,感動,委屈,憤怒,平靜,得意,害怕,擔憂,滿意,後悔,驚訝,傷心,愉快,煩惱,痛快,焦慮,親切,溫柔,憤恨,遺憾,痛心,失望,絕望,振奮,驚慌,害羞,寬慰,繁華,寧靜,壯觀,朦朧,翠綠,茂盛,凋謝,清脆,寬闊,狹窄,陡峭,崎嶇,清澈,湛藍,五光十色,柔軟,堅硬,粗糙,平滑,細緻,鮮艷,灰暗,透明,沉重,輕巧,濃郁,清淡,刺耳,芬芳,冰冷,滾燙,倒影,環繞,延綿,遼闊,從前,神奇,魔幻,仙女,城堡,森林,怪物,變幻,願望,善良,邪惡,報答,誠實,結果,後來,突然,竟然,果然,最後,經歷,解決,希望,夢想,道理,困難,容易,珍惜,浪費,保護,破壞,重要,特別,發現,觀察,試驗,結局,遭遇,高山,深谷,河流,海洋,平原,島嶼,沙漠,瀑布,泉水,港口,沙灘,懸崖,叢林,溪流,湖泊,山脈,盆地,丘陵,濕地,旋轉,搖晃,跳動,擺動,滑行,飛翔,降落,漂浮,沉沒,燃燒,爆炸,分裂,結合,掩護,進攻,防守,追逐".split(',');
 const p4Words = "觀察,實驗,證明,創造,想像,豐富,精彩,深刻,欣賞,讚美,批評,建議,改善,效率,節省,累積,經驗,智慧,慈祥,嚴厲,和藹,剛強,內向,外向,謙虛,傲慢,機靈,穩重,馬虎,細心,慷慨,吝嗇,感激,憐憫,同情,懷念,敬佩,羨慕,嫉妒,厭惡,原諒,信任,孤獨,毅力,果斷,正直,奸詐,頑強,平易近人,默默無聞,堅持不懈,不屈不撓,一心一意,自言自語,五顏六色,走馬看花,目瞪口呆,大公無私,力不從心,半途而廢,名列前茅,垂頭喪氣,胸有成竹,得意洋洋,破口大罵,悶悶不樂,視而不見,無影無蹤,萬眾一心,情不自禁,千變萬化,大海撈針,守口如瓶,廢寢忘食,驚心動魄,隨遇而安,異想天開,出口成章,入木三分,名副其實,大言不慚,不知所措,以身作則,因材施教,老馬識途,再接再厲,百折不撓,自強不息,忍辱負重,走投無路,其貌不揚,刻骨銘心,念念不忘,如同,彷彿,閃爍,襯托,比喻,生動,感人,層次,細膩,描繪,總結,鋪陳,擬人,誇張,對比,排比,反問,設問,呼應,過渡,聯想,引用,渲染,側寫,伏筆,精煉,流暢,生澀,含蓄,直白,主旨,段落,概括,結構,昇華,意象".split(',');
 const p5Words = "價值,意義,態度,信念,理想,意志,勇氣,智慧,磨練,考驗,機遇,挑戰,趨勢,貢獻,傳統,革新,責任感,榮譽感,包容,和諧,正義,公理,邏輯,偏見,主觀,客觀,判斷,選擇,決定,後果,目標,實踐,恆心,毅力,反省,映襯,鋪墊,反思,感悟,意境,昇華,象徵,側寫,烘托,扣人心弦,精雕細琢,引引人入勝,言簡意賅,惟妙惟肖,妙筆生花,畫龍點睛,別開生面,不落俗套,意蘊深長,層次分明,首尾呼應,跌宕起伏,感人肺腑,嘆為觀止,慶祝,節日,秩序,繁榮,落後,競爭,合作,分配,義務,權利,福利,建設,發展,資源,保育,污染,氣候變遷,多樣性,演化,繁衍,棲息,滅絕,平衡,循環,再生,減少,廢物,能源,低碳,綠色生活,危機,共識,政策,意識,不可思議,不勞而獲,心曠神怡,見義勇為,言行一致,刻苦耐勞,理直氣壯,落井下石,精益求精,語重心長,鍥而不捨,驚慌失措,舉一反三,隨機應變,實事求是,堅持不懈,赴湯蹈火,指鹿為馬,望洋興嘆,聞雞起舞".split(',');
-const p6Words = "前程似錦,後會有期,萍水相逢,朝夕相對,患難與共,捨己為人,推陳出新,袖手旁觀,肅然起敬,微不足道,雷厲風行,慷慨解囊,應接不暇,獲益匪淺,難能可貴,瞻前顧後,離鄉別井,飲水思源,學富五車,默默耕耘,自討苦吃,得寸進尺,趨勢,革新,治理,政策,和諧,永續,全球化,競爭力,優勢,劣勢,關鍵,轉型,展望,民主,法治,義務,公民,權利,爭議,平衡,協調,衝突,改善,效率,指標,監督,評估,透明度,公共利益,社區意識,人權,發展路徑,多元化,惆悵,眷戀,釋懷,沉鬱,慨嘆,欣慰,徬徨,羞赧,焦躁,淡泊,懷舊,憧憬,身歷其境,感觸,唏噓,昂揚,憂傷,喜悅,空靈,質樸,華麗,冷峻,奔放,激昂,平實,深奧,淺顯,晦澀,明快,優美,細膩,粗獷,幽默,諷刺,真實,虛幻,同窗,恩師,勉勵,前途,回憶,珍重,揚帆,啟航,奮鬥,光陰,不捨,踏實,前進,志向,抱負,信念,勇往直前,白駒過隙,光陰似箭,歲月流逝,難忘,純真,友情,離情依依,繼往開來,自強不息,宏偉,目標,成就,感激,祝福,夢想成真".split(',');
+const p6Words = "前程似錦,後會有期,萍水相逢,朝夕相對,患難與共,捨己為人,推陳出新,袖手旁觀,肅然起敬,微不足道,雷厲風行,慷慨解囊,應接不暇,獲益匪淺,難能可貴,瞻前顧後,離鄉別井,飲水思源,學富五車,默默耕耘,自討苦吃,得寸進尺,趨勢,革新,治理,政策,和諧,永續,全球化,競爭力,優勢,劣勢,關鍵,轉型,展望,民主,法治,義務,公民,權利,爭議,平衡,協調,衝突,改善,效率,指標,監督,評估,透明度,公共利益,社區意識,人權,發展路徑,多元化,惆悵,眷戀,釋懷,沉鬱,慨嘆,欣謂,徬徨,羞赧,焦躁,淡泊,懷舊,憧憬,身歷其境,感觸,唏噓,昂揚,憂傷,喜悅,空靈,質樸,華麗,冷峻,奔放,激昂,平實,深奧,淺顯,晦澀,明快,優美,細膩,粗獷,幽默,諷刺,真實,虛幻,同窗,恩師,勉勵,前途,回憶,珍重,揚帆,啟航,奮鬥,光陰,不捨,踏實,前進,志向,抱負,信念,勇往直前,白駒過隙,光陰似箭,歲月流逝,難忘,純真,友情,離情依依,繼往開來,自強不息,宏偉,目標,成就,感激,祝福,夢想成真".split(',');
 const examWords = "判斷,分析,解釋,列舉,歸納,比較,對照,選出,填寫,圈出,劃線,修正,補充,根據,引用,理由,原因,結果,影響,異同,特點,特徵,適當,錯誤,正確,正確答案,下列,以上,未必,必定,可能,顯示,反映,關鍵,主旨,中心思想,段意,承上啟下,伏筆,呼應,性格,心情,描寫,感受,啟發,體會,寓意,比喻,本體,喻體,擬人,排比,對比,誇張,反問,設問,疊字,對偶,感官,視覺,聽覺,嗅覺,相差,共,餘下,平分,平均,原本,現有,倍數,一半,增加,減少,求,計算,橫式,直式,單位,估算,實驗,觀察,記錄,結論,公平,變量,假設,功能,構造,演變,趨勢,資料,圖表,比例,分配,資源,環保,責任,權利,義務,借代,反襯,雙關,層遞,頂真,聯想,想像,象徵,反語,開門見山,卒章顯志,寓情於景,借景抒情,托物言志,先抑後揚,側面描寫,行動描寫,心理描寫".split(',');
 
 const TOTAL_POOL = [...p2Words, ...p3Words, ...p4Words, ...p5Words, ...p6Words, ...examWords];
-const START_LIMIT = new Date("2026-03-19T00:00:00");
+const START_LIMIT = new Date("2026-03-25T00:00:00");
+const STORAGE_KEY = 'hero_v1.5_data';
 
-// --- 邏輯與狀態 ---
-let userData = JSON.parse(localStorage.getItem('hero_v1.4.1')) || { completed: {}, fails: {} };
+let userData = JSON.parse(localStorage.getItem(STORAGE_KEY)) || { completed: {}, fails: {} };
 let viewDate = new Date();
 let currentWords = [], currentIdx = 0, flashTimer = null, recognition = null;
 let isReadMode = false;
@@ -82,34 +98,60 @@ let isReadMode = false;
 function init() {
     setupRecognition();
     const todayStr = new Date().toLocaleDateString('sv-SE');
-    // 如果今天 >= 19號 且 未完成，自動開啟今日任務
     if (new Date() >= START_LIMIT && !userData.completed[todayStr]) startTask(todayStr); 
     else renderCalendar();
 }
 
+// --- 數據管理功能 ---
+function exportData() {
+    const dataStr = JSON.stringify(userData);
+    navigator.clipboard.writeText(dataStr).then(() => {
+        alert("進度代碼已複製！你可以傳送到新手機。");
+    });
+}
+
+function importData() {
+    const code = prompt("請貼上匯出的進度代碼：");
+    if (code) {
+        try {
+            const parsed = JSON.parse(code);
+            if (parsed.completed) {
+                userData = parsed;
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(userData));
+                alert("匯入成功！");
+                location.reload();
+            }
+        } catch(e) { alert("代碼格式不正確！"); }
+    }
+}
+
+function resetData() {
+    if (confirm("確定要重設所有記錄嗎？這會清除所有已完成的 ✅ 和錯詞記錄。")) {
+        userData = { completed: {}, fails: {} };
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(userData));
+        location.reload();
+    }
+}
+
+// --- 月曆渲染 ---
 function renderCalendar() {
     document.getElementById('calendar-view').style.display = 'flex';
     document.getElementById('challenge-view').style.display = 'none';
     const grid = document.getElementById('calendar-grid'); grid.innerHTML = '';
     const y = viewDate.getFullYear(), m = viewDate.getMonth();
     document.getElementById('month-label').innerText = `${y}年${m + 1}月`;
-    
     const firstDay = new Date(y, m, 1).getDay();
     const totalDays = new Date(y, m + 1, 0).getDate();
     for(let i=0; i<firstDay; i++) grid.appendChild(document.createElement('div'));
-    
     for(let d=1; d<=totalDays; d++) {
         const dObj = new Date(y, m, d);
         const dStr = dObj.toLocaleDateString('sv-SE');
         const div = document.createElement('div');
         div.className = 'day-box';
         div.innerText = d;
-
-        if (dObj < START_LIMIT) {
-            div.classList.add('locked');
-        } else if (dObj > new Date()) {
-            div.classList.add('future');
-        } else {
+        if (dObj < START_LIMIT) { div.classList.add('locked'); } 
+        else if (dObj > new Date()) { div.classList.add('future'); } 
+        else {
             if(dStr === new Date().toLocaleDateString('sv-SE')) div.classList.add('today');
             if(userData.completed[dStr]) div.classList.add('completed');
             div.onclick = () => startTask(dStr);
@@ -118,26 +160,24 @@ function renderCalendar() {
     }
 }
 
+// --- 任務控制 ---
 function startTask(dateStr) {
     window.activeDate = dateStr;
     document.getElementById('calendar-view').style.display = 'none';
     document.getElementById('challenge-view').style.display = 'flex';
-    
     const targetDate = new Date(dateStr + "T00:00:00");
     const diffDays = Math.floor((targetDate - START_LIMIT) / 86400000);
     const dayOfWeek = targetDate.getDay();
-
-    // 智能配詞邏輯
-    if(dayOfWeek >= 1 && dayOfWeek <= 5) { // 平日 10個新詞
+    
+    if(dayOfWeek >= 1 && dayOfWeek <= 5) {
         const startIdx = (diffDays * 10) % TOTAL_POOL.length;
         currentWords = TOTAL_POOL.slice(startIdx, startIdx + 10);
-    } else if(dayOfWeek === 6) { // 週六 20個弱項
-        const fails = Object.entries(userData.fails).sort((a,b)=>b[1]-a[1]).slice(0,20).map(x=>x[0]);
+    } else if(dayOfWeek === 6) {
+        const fails = Object.entries(userData.fails).filter(x=>x[1]>0).sort((a,b)=>b[1]-a[1]).slice(0,20).map(x=>x[0]);
         currentWords = fails.length >= 5 ? fails : TOTAL_POOL.slice(0, 20);
-    } else { // 週日 30個隨機
+    } else {
         currentWords = [...TOTAL_POOL].sort(()=>0.5-Math.random()).slice(0,30);
     }
-    
     currentIdx = 0;
     switchToListenMode();
 }
@@ -178,25 +218,20 @@ function showWord() {
     display.innerText = word || "完";
     display.classList.remove('correct');
     document.getElementById('task-info').innerText = `剩餘：${currentWords.length} 詞`;
-    
-    // 關鍵修改：只有在「非挑戰模式」(即聽模式) 時才自動朗讀
-    if (!isReadMode) {
-        speak(word);
-    }
+    if (!isReadMode && word) speak(word);
 }
 
 function setupRecognition() {
     const sr = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if(!sr) { alert("此瀏覽器不支援語音辨識，請使用 Chrome / Safari"); return; }
     recognition = new sr(); recognition.lang = 'zh-HK'; recognition.continuous = true;
     recognition.onresult = (e) => {
         if(!isReadMode) return;
         const text = e.results[e.results.length-1][0].transcript.replace(/[，。？！\s]/g, '');
         const target = currentWords[currentIdx];
         document.getElementById('status-msg').innerText = `聽：${text}`;
-        
         if(text.includes(target)) {
             document.getElementById('word-display').classList.add('correct');
-            // 讀對了記錄並移除
             userData.fails[target] = 0; 
             setTimeout(() => {
                 currentWords.splice(currentIdx, 1);
@@ -212,9 +247,9 @@ function setupRecognition() {
 
 function finish() {
     stopRec(); userData.completed[window.activeDate] = true;
-    localStorage.setItem('hero_v1.4.1', JSON.stringify(userData));
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(userData));
     document.getElementById('word-display').innerText = "任務完成！";
-    speak("好棒呀！任務完成，好犀利呀！");
+    speak("好棒呀！全部讀啱晒！");
     setTimeout(renderCalendar, 2000);
 }
 
